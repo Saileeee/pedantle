@@ -1,3 +1,7 @@
+# Another file that should only be run once!
+# retrieves the titles from wikipedia vital articles levels 1-3 
+# and saves them to a json file
+
 import requests
 import time
 import json
@@ -57,17 +61,19 @@ def get_vital_articles(session, level=1):
     return articles
 
 def main():
-    level = 3 #just testing level 1 for now
     session = requests.Session()
     session.headers.update({"User-Agent": "MyVitalArticlesGame/1.0 (vardesailee@gmail.com)"})
+    articles = []
 
-    print(f"Fetching Level {level} vital articles...")
-    articles = get_vital_articles(session, level) 
+    for level in {1, 2, 3}:  # Loop through levels 1 to 3
+        print(f"Fetching Level {level} vital articles...")
+        articles = articles + get_vital_articles(session, level) 
+        
     # later add a loop to get levels 2 & 3 and additional handling for 4 & 5
-    articles = list(set(articles))  # deduplicate
-    print(f"Level {level} has {len(articles)} unique articles.")
+    # articles = list(set(articles))  # deduplicate
+    print(f"There are {len(articles)} unique articles.") #should be 999+100+10 = 1109
 
-    output_path = f"vital_articles_level_{level}.json"
+    output_path = f"vital_articles.json"
     with open(output_path, "w") as f:
         json.dump(articles, f, indent=2)
     print(f"Saved to {output_path}")
