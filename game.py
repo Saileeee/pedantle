@@ -1,4 +1,4 @@
-from gensim.models import KeyedVectors
+from gensim.models import KeyedVectors # type: ignore
 
 # load the model from memory
 model = KeyedVectors.load('glove.kv', mmap='r')

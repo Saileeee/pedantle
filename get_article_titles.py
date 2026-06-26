@@ -1,41 +1,76 @@
 import requests
 import time
+import json
 
-request_delay = 0.1 
+REQUEST_DELAY = 1
+#MAX_RETRIES = 5
+api_endpoint = "https://en.wikipedia.org/w/api.php"
 
-def get_vital_articles(level=1):
-    session = requests.Session()
-    session.headers.update({"User-Agent": "MyVitalArticlesGame/1.0 (your@email.com)"})
-
-    params = {
-    'action': 'query',
-    'titles': f"Wikipedia:Vital_articles/Level/{level}",
-    'prop': 'links',
-    'pllimit': 'max',
-    'plnamespace': 0,   # main article namespace only
-    'format': 'json',
-    'formatversion': 2
-}
+#only works for levels 1-3 probably
+def get_vital_articles(session, level=1):
+    base_params = {
+        'action': 'query', 
+        'titles': f"Wikipedia:Vital_articles/Level_{level}",
+        'prop': 'links',
+        'pllimit': 'max',
+        'plnamespace': 0,
+        'format': 'json',
+        'formatversion': 2
+    }
 
     articles = []
+    params = base_params.copy()
+
     while True:
-        response = session.get("https://en.wikipedia.org/w/api.php", params=params).json()
-        links = response["query"]["pages"].popitem()[1]["links"]
-        articles += [l["*"] for l in links if l["ns"] == 0]
-
-        if "continue" not in response:
+        #get page links
+        response = session.get(api_endpoint, params=params, timeout = 30)
+        try:           
+            response.raise_for_status()
+            data = response.json()
+        except requests.RequestException as e:
+            if response.status_code == 429:    
+                print("Error 429: Too Many Requests. Waiting for 5 seconds before retrying...")
+                time.sleep(5)
+                continue
+            print(f"Request failed: {e}")
             break
-        params.update(response["continue"])
-        time.sleep(request_delay)  # Respect API rate limits
+        
+        #get the actual data from the response 
+        pages = data.get("query", {}).get("pages", [])
 
+        #add title from links in each page if not a disambiguation page
+        for page in pages:
+            for link in page.get("links", []):
+                title = link.get("title")
+                if title:
+                    articles.append(title)
+        print(f"Fetched {len(articles)} articles so far...")
+
+
+        if data.get("continue"):
+            # Update only the continue keys, keep base params intact
+            params = {**base_params, **data["continue"]}
+            time.sleep(REQUEST_DELAY)
+        else:
+            break
+  
     return articles
 
 def main():
-    #for level in range(1, 6):
-    level = 1
+    level = 3 #just testing level 1 for now
+    session = requests.Session()
+    session.headers.update({"User-Agent": "MyVitalArticlesGame/1.0 (vardesailee@gmail.com)"})
+
     print(f"Fetching Level {level} vital articles...")
-    articles = get_vital_articles(level)
-    print(f"Level {level} has {len(articles)} articles.")
+    articles = get_vital_articles(session, level) 
+    # later add a loop to get levels 2 & 3 and additional handling for 4 & 5
+    articles = list(set(articles))  # deduplicate
+    print(f"Level {level} has {len(articles)} unique articles.")
+
+    output_path = f"vital_articles_level_{level}.json"
+    with open(output_path, "w") as f:
+        json.dump(articles, f, indent=2)
+    print(f"Saved to {output_path}")
 
 if __name__ == "__main__":
     main()
